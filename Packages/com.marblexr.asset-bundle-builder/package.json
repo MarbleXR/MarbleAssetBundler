@@ -1,0 +1,21 @@
+{
+  "name": "com.marblexr.asset-bundle-builder",
+  "version": "1.0.0",
+  "displayName": "Marble AssetBundle Builder",
+  "description": "Builds Marble-compatible iOS and Android AssetBundles and packages them with metadata and Unity manifests in a validated ZIP archive.",
+  "unity": "6000.3",
+  "unityRelease": "11f1",
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.2",
+    "com.unity.modules.assetbundle": "1.0.0"
+  },
+  "keywords": [
+    "assetbundle",
+    "content",
+    "editor",
+    "marble"
+  ],
+  "author": {
+    "name": "MarbleXR"
+  }
+}
