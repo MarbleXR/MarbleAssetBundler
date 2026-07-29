@@ -16,7 +16,7 @@ Packageは`com.unity.nuget.newtonsoft-json`と`com.unity.modules.assetbundle`を
 Package Managerの`Add package from git URL...`へ、利用するcommitまたはtagを固定したURLを入力します。
 
 ```text
-git@github.com:MarbleXR/marble.git?path=/Packages/com.marblexr.asset-bundle-builder#<commit-or-tag>
+https://github.com/MarbleXR/MarbleAssetBundler.git?path=/Packages/com.marblexr.asset-bundle-builder#<commit-or-tag>
 ```
 
 開発中にローカルで確認する場合は、このディレクトリを対象プロジェクトの`Packages/com.marblexr.asset-bundle-builder`へコピーしてEmbedded Packageとして利用できます。

@@ -29,3 +29,6 @@ sysinfo.txt
 .vscode/
 
 AssetBundlePackages/
+
+# Unity package exports
+*.unitypackage

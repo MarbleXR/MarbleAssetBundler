@@ -979,11 +979,11 @@ PlayerSettings:
   captureStartupLogs: {}
   activeInputHandler: 0
   windowsGamepadBackendHint: 0
-  cloudProjectId: 15b5143f-a662-4ac1-89d7-fc662d9e756c
+  cloudProjectId: ''
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
   projectName: MarbleAssetBundle
-  organizationId: kykt
+  organizationId: ''
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
   hmiLoadingImage: {fileID: 0}
