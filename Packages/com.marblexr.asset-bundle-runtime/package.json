@@ -1,0 +1,20 @@
+{
+  "name": "com.marblexr.asset-bundle-runtime",
+  "version": "0.1.0",
+  "displayName": "Marble AssetBundle Runtime",
+  "description": "Runtime components shared by Marble AssetBundle authoring projects and the Marble application.",
+  "unity": "6000.3",
+  "unityRelease": "11f1",
+  "dependencies": {
+    "com.unity.modules.audio": "1.0.0",
+    "com.unity.modules.particlesystem": "1.0.0"
+  },
+  "keywords": [
+    "assetbundle",
+    "marble",
+    "runtime"
+  ],
+  "author": {
+    "name": "MarbleXR"
+  }
+}
