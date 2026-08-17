@@ -57,6 +57,7 @@ namespace Marble.AssetBundleRuntime.PerformanceTests.Fireworks
             {
                 ProcessFrame(components, simulatedTime, simulatedDeltaTime);
                 simulatedTime += simulatedDeltaTime;
+                yield return null;
             }
 
             GC.Collect();
@@ -64,17 +65,20 @@ namespace Marble.AssetBundleRuntime.PerformanceTests.Fireworks
             GC.Collect();
             long[] elapsedTicks = new long[MeasuredFrames];
             GC.GetAllocatedBytesForCurrentThread();
-            long allocatedBytesBefore = GC.GetAllocatedBytesForCurrentThread();
+            long allocatedBytes = 0;
 
             for (int frame = 0; frame < MeasuredFrames; frame++)
             {
+                long allocatedBytesBefore = GC.GetAllocatedBytesForCurrentThread();
                 long startTimestamp = Stopwatch.GetTimestamp();
                 ProcessFrame(components, simulatedTime, simulatedDeltaTime);
                 elapsedTicks[frame] = Stopwatch.GetTimestamp() - startTimestamp;
+                allocatedBytes +=
+                    GC.GetAllocatedBytesForCurrentThread() - allocatedBytesBefore;
                 simulatedTime += simulatedDeltaTime;
+                yield return null;
             }
 
-            long allocatedBytes = GC.GetAllocatedBytesForCurrentThread() - allocatedBytesBefore;
             Array.Sort(elapsedTicks);
             int p95Index = (int)Math.Ceiling(MeasuredFrames * 0.95d) - 1;
             double p95Milliseconds =
