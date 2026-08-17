@@ -5,8 +5,16 @@
       "depth": 0,
       "source": "embedded",
       "dependencies": {
-        "com.unity.nuget.newtonsoft-json": "3.2.2",
         "com.unity.modules.assetbundle": "1.0.0"
+      }
+    },
+    "com.marblexr.asset-bundle-runtime": {
+      "version": "file:com.marblexr.asset-bundle-runtime",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.modules.audio": "1.0.0",
+        "com.unity.modules.particlesystem": "1.0.0"
       }
     },
     "com.unity.2d.sprite": {
@@ -73,13 +81,6 @@
       "dependencies": {
         "com.unity.modules.uielements": "1.0.0"
       }
-    },
-    "com.unity.nuget.newtonsoft-json": {
-      "version": "3.2.2",
-      "depth": 1,
-      "source": "registry",
-      "dependencies": {},
-      "url": "https://packages.unity.com"
     },
     "com.unity.performance.profile-analyzer": {
       "version": "1.3.2",
