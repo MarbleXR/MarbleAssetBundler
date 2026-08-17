@@ -32,3 +32,10 @@ AssetBundlePackages/
 
 # Unity package exports
 *.unitypackage
+
+# Assets are provisioned locally and are not published.
+/Assets/*
+
+# Repository-owned Unity scripts only.
+!/Assets/Scripts.meta
+!/Assets/Scripts/
