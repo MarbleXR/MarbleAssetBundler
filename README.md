@@ -38,3 +38,5 @@ Marbleアプリで利用するPrefabを、iOS／Android向けのAssetBundleと�
 ## 開発者向け
 
 Builder Packageの詳細、導入方法、およびEditModeテストの実行方法は[パッケージのREADME](Packages/com.marblexr.asset-bundle-builder/README.md)を参照してください。
+
+非エンジニアへ配布する場合は、Unity Editorの`Tools > Marble > Export AssetBundle Builder .unitypackage`で配布用ファイルを作成してください。利用者はその`.unitypackage`を開いて`Import`を選ぶだけで導入できます。

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Newtonsoft.Json;
+using UnityEngine;
 
 namespace Marble.AssetBundleBuilder.Editor
 {
@@ -343,13 +343,6 @@ namespace Marble.AssetBundleBuilder.Editor
 
     internal static class AssetBundlePackageManifestJson
     {
-        private static readonly JsonSerializerSettings Settings = new()
-        {
-            Formatting = Formatting.Indented,
-            NullValueHandling = NullValueHandling.Include,
-            DateParseHandling = DateParseHandling.None
-        };
-
         internal static string Serialize(AssetBundlePackageManifest manifest)
         {
             if (manifest == null)
@@ -357,7 +350,7 @@ namespace Marble.AssetBundleBuilder.Editor
                 throw new ArgumentNullException(nameof(manifest));
             }
 
-            return JsonConvert.SerializeObject(manifest, Settings);
+            return JsonUtility.ToJson(ManifestDto.FromManifest(manifest), true);
         }
 
         internal static AssetBundlePackageManifest Deserialize(string json)
@@ -367,8 +360,154 @@ namespace Marble.AssetBundleBuilder.Editor
                 throw new ArgumentException("Package manifest JSON is required.", nameof(json));
             }
 
-            return JsonConvert.DeserializeObject<AssetBundlePackageManifest>(json, Settings)
-                   ?? throw new JsonSerializationException("Package manifest JSON produced no object.");
+            var dto = JsonUtility.FromJson<ManifestDto>(json);
+            if (dto == null)
+            {
+                throw new ArgumentException("Package manifest JSON produced no object.", nameof(json));
+            }
+
+            return dto.ToManifest();
+        }
+
+        [Serializable]
+        private sealed class ManifestDto
+        {
+            public int schemaVersion;
+            public string bundleName;
+            public string displayName;
+            public string contentVersion;
+            public string unityVersion;
+            public string generatedAtUtc;
+            public PrefabDto[] prefabs;
+            public PlatformsDto platforms;
+
+            internal static ManifestDto FromManifest(AssetBundlePackageManifest manifest)
+            {
+                return new ManifestDto
+                {
+                    schemaVersion = manifest.SchemaVersion,
+                    bundleName = manifest.BundleName,
+                    displayName = manifest.DisplayName,
+                    contentVersion = manifest.ContentVersion,
+                    unityVersion = manifest.UnityVersion,
+                    generatedAtUtc = manifest.GeneratedAtUtc,
+                    prefabs = manifest.Prefabs?
+                        .Select(PrefabDto.FromManifest)
+                        .ToArray(),
+                    platforms = PlatformsDto.FromManifest(manifest.Platforms)
+                };
+            }
+
+            internal AssetBundlePackageManifest ToManifest()
+            {
+                return new AssetBundlePackageManifest
+                {
+                    SchemaVersion = schemaVersion,
+                    BundleName = bundleName,
+                    DisplayName = displayName,
+                    ContentVersion = contentVersion,
+                    UnityVersion = unityVersion,
+                    GeneratedAtUtc = generatedAtUtc,
+                    Prefabs = prefabs?.Select(prefab => prefab.ToManifest()).ToArray()
+                              ?? Array.Empty<AssetBundlePackagePrefabManifest>(),
+                    Platforms = platforms?.ToManifest()
+                };
+            }
+        }
+
+        [Serializable]
+        private sealed class PrefabDto
+        {
+            public string name;
+            public string assetPath;
+
+            internal static PrefabDto FromManifest(AssetBundlePackagePrefabManifest manifest)
+            {
+                return new PrefabDto { name = manifest.Name, assetPath = manifest.AssetPath };
+            }
+
+            internal AssetBundlePackagePrefabManifest ToManifest()
+            {
+                return new AssetBundlePackagePrefabManifest { Name = name, AssetPath = assetPath };
+            }
+        }
+
+        [Serializable]
+        private sealed class PlatformsDto
+        {
+            public PlatformDto ios;
+            public PlatformDto android;
+
+            internal static PlatformsDto FromManifest(AssetBundlePackagePlatformsManifest manifest)
+            {
+                if (manifest == null)
+                {
+                    return null;
+                }
+
+                return new PlatformsDto
+                {
+                    ios = PlatformDto.FromManifest(manifest.Ios),
+                    android = PlatformDto.FromManifest(manifest.Android)
+                };
+            }
+
+            internal AssetBundlePackagePlatformsManifest ToManifest()
+            {
+                return new AssetBundlePackagePlatformsManifest
+                {
+                    Ios = ios?.ToManifest(),
+                    Android = android?.ToManifest()
+                };
+            }
+        }
+
+        [Serializable]
+        private sealed class PlatformDto
+        {
+            public string buildTarget;
+            public string path;
+            public long size;
+            public string sha256;
+            public string manifestPath;
+            public long manifestSize;
+            public string manifestSha256;
+            public string[] dependencies;
+
+            internal static PlatformDto FromManifest(AssetBundlePackagePlatformManifest manifest)
+            {
+                if (manifest == null)
+                {
+                    return null;
+                }
+
+                return new PlatformDto
+                {
+                    buildTarget = manifest.BuildTarget,
+                    path = manifest.Path,
+                    size = manifest.Size,
+                    sha256 = manifest.Sha256,
+                    manifestPath = manifest.ManifestPath,
+                    manifestSize = manifest.ManifestSize,
+                    manifestSha256 = manifest.ManifestSha256,
+                    dependencies = manifest.Dependencies
+                };
+            }
+
+            internal AssetBundlePackagePlatformManifest ToManifest()
+            {
+                return new AssetBundlePackagePlatformManifest
+                {
+                    BuildTarget = buildTarget,
+                    Path = path,
+                    Size = size,
+                    Sha256 = sha256,
+                    ManifestPath = manifestPath,
+                    ManifestSize = manifestSize,
+                    ManifestSha256 = manifestSha256,
+                    Dependencies = dependencies
+                };
+            }
         }
     }
 }

@@ -9,17 +9,31 @@ Marbleアプリで表示するPrefabをiOS／Android向けAssetBundleへビル�
 - Android Build Support
 - Built-in Render Pipelineを使うMarble互換のコンテンツ設定
 
-Packageは`com.unity.nuget.newtonsoft-json`と`com.unity.modules.assetbundle`を依存関係として導入します。
+Packageは`com.unity.modules.assetbundle`を利用します。
 
 ## 別Unityプロジェクトへの導入
+
+### Unity Packageでの導入（利用者向け）
+
+配布された`MarbleAssetBundleBuilder-<version>.unitypackage`をダブルクリックし、UnityのImport画面で`Import`を選択します。導入後は`Tools > Marble > AssetBundle Package Builder`を開いてください。
+
+更新時も新しい`.unitypackage`を同じ手順でImportします。導入先は`Assets/MarbleAssetBundleBuilder/`です。
+
+### Unity Packageの作成（開発者向け）
+
+1. Builder Packageを導入したUnityプロジェクトを開く。
+2. `Tools > Marble > Export AssetBundle Builder .unitypackage`を選ぶ。
+3. 保存先を選択する。
+
+作成された`.unitypackage`を利用者へ配布します。Git URLの入力や`Packages/manifest.json`の編集は不要です。
+
+### UPM Packageでの導入（開発者向け）
 
 Package Managerの`Add package from git URL...`へ、利用するcommitまたはtagを固定したURLを入力します。
 
 ```text
 https://github.com/MarbleXR/MarbleAssetBundler.git?path=/Packages/com.marblexr.asset-bundle-builder#<commit-or-tag>
 ```
-
-開発中にローカルで確認する場合は、このディレクトリを対象プロジェクトの`Packages/com.marblexr.asset-bundle-builder`へコピーしてEmbedded Packageとして利用できます。
 
 ## 使い方
 
