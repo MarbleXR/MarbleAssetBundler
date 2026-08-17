@@ -14,8 +14,10 @@ namespace Marble.AssetBundleRuntime.Tests.Fireworks
     public sealed class FireworkParticleAudioTests
     {
         private const float PositionTolerance = 0.001f;
+        private const float SimulatedDeltaTime = 1f / 60f;
 
         private readonly List<Object> objectsToDestroy = new List<Object>();
+        private static uint nextParticleSeed = 1;
 
         [SetUp]
         public void SetUp()
@@ -27,6 +29,7 @@ namespace Marble.AssetBundleRuntime.Tests.Fireworks
         [TearDown]
         public void TearDown()
         {
+            Time.timeScale = 1f;
             for (int index = objectsToDestroy.Count - 1; index >= 0; index--)
             {
                 if (objectsToDestroy[index] != null)
@@ -176,6 +179,105 @@ namespace Marble.AssetBundleRuntime.Tests.Fireworks
         }
 
         [UnityTest]
+        public IEnumerator RepeatedProcessingTriggersEachParticleEventOnlyOnce()
+        {
+            TestRig rig = CreateRig(
+                audioShot: new[] { CreateClip("Shot") },
+                shotPoolSize: 2);
+            Activate(rig);
+            SetParticle(rig, Vector3.zero, 10f, 10f);
+
+            for (int index = 0; index < 4; index++)
+            {
+                rig.Component.ProcessFrame(Time.unscaledTime, SimulatedDeltaTime);
+            }
+
+            AudioSource[] sources = rig.Component.GetComponentsInChildren<AudioSource>(true);
+            Assert.That(sources.Count(source => source.gameObject.activeSelf), Is.EqualTo(1));
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator SimulationSpeedZeroDefersBirthUntilSimulationResumes()
+        {
+            TestRig rig = CreateRig(
+                audioShot: new[] { CreateClip("Shot") },
+                shotPoolSize: 1);
+            Activate(rig);
+            ParticleSystem.MainModule main = rig.ParticleSystem.main;
+            main.simulationSpeed = 0f;
+            rig.ParticleSystem.Play(true);
+            SetParticle(rig, Vector3.zero, 10f, 10f);
+
+            yield return null;
+            yield return null;
+
+            AudioSource source = FindPooledSource(rig, "ShotAudioPrefab");
+            Assert.That(source.gameObject.activeSelf, Is.False);
+
+            main.simulationSpeed = 0.5f;
+            yield return null;
+
+            Assert.That(source.gameObject.activeSelf, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator UnscaledSimulationTriggersWhileTimeScaleIsZero()
+        {
+            TestRig rig = CreateRig(
+                audioShot: new[] { CreateClip("Shot") },
+                shotPoolSize: 1);
+            Activate(rig);
+            ParticleSystem.MainModule main = rig.ParticleSystem.main;
+            main.useUnscaledTime = true;
+            rig.ParticleSystem.Play(true);
+            Time.timeScale = 0f;
+            yield return null;
+
+            float particleDeltaTime = rig.Component.GetParticleDeltaTime();
+            Assert.That(particleDeltaTime, Is.GreaterThan(0f));
+            SetParticle(rig, Vector3.zero, 10f, 10f);
+            rig.Component.ProcessFrame(Time.unscaledTime, particleDeltaTime);
+
+            Time.timeScale = 1f;
+            Assert.That(FindPooledSource(rig, "ShotAudioPrefab").gameObject.activeSelf, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator DestroyingComponentRemovesItsOwnedPools()
+        {
+            TestRig rig = CreateRig(
+                audioExplosion: new[] { CreateClip("Explosion") },
+                audioShot: new[] { CreateClip("Shot") },
+                explosionPoolSize: 1,
+                shotPoolSize: 1);
+            Activate(rig);
+            Assert.That(rig.Root.GetComponentsInChildren<AudioSource>(true), Has.Length.EqualTo(2));
+
+            Object.Destroy(rig.Component);
+            yield return null;
+
+            Assert.That(rig.Root.GetComponentsInChildren<AudioSource>(true), Is.Empty);
+        }
+
+        [UnityTest]
+        public IEnumerator PrefabWithoutRootAudioSourceCreatesNoPool()
+        {
+            TestRig rig = CreateRig(
+                audioShot: new[] { CreateClip("Shot") },
+                shotPoolSize: 32);
+            GameObject invalidPrefab = Track(new GameObject("InvalidAudioPrefab"));
+            invalidPrefab.SetActive(false);
+            SetField(rig.Component, "shotAudioPrefab", invalidPrefab);
+            Activate(rig);
+
+            yield return ProcessParticle(rig, Vector3.zero, 10f, 10f);
+
+            Assert.That(rig.Component.GetComponentsInChildren<AudioSource>(true), Is.Empty);
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [UnityTest]
         public IEnumerator LocalSimulationSpaceUsesParticleSystemTransform()
         {
             TestRig rig = CreateRig(audioShot: new[] { CreateClip("Shot") }, shotPoolSize: 1);
@@ -281,16 +383,27 @@ namespace Marble.AssetBundleRuntime.Tests.Fireworks
             float startLifetime,
             float remainingLifetime)
         {
+            SetParticle(rig, position, startLifetime, remainingLifetime);
+            rig.Component.ProcessFrame(Time.unscaledTime, SimulatedDeltaTime);
+            yield return null;
+            rig.ParticleSystem.Clear(true);
+        }
+
+        private static void SetParticle(
+            TestRig rig,
+            Vector3 position,
+            float startLifetime,
+            float remainingLifetime)
+        {
             ParticleSystem.Particle particle = new ParticleSystem.Particle
             {
                 position = position,
                 startLifetime = startLifetime,
                 remainingLifetime = remainingLifetime,
                 startSize = 1f,
+                randomSeed = nextParticleSeed++,
             };
             rig.ParticleSystem.SetParticles(new[] { particle }, 1);
-            yield return null;
-            rig.ParticleSystem.Clear(true);
         }
 
         private static void SetSimulationSpace(

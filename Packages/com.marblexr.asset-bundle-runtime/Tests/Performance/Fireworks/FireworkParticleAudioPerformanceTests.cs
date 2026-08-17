@@ -37,6 +37,7 @@ namespace Marble.AssetBundleRuntime.PerformanceTests.Fireworks
         }
 
         [UnityTest]
+        [UnityPlatform(RuntimePlatform.OSXEditor, RuntimePlatform.WindowsEditor, RuntimePlatform.LinuxEditor)]
         public IEnumerator FourInstancesAndTwoHundredParticlesMeetEditorPerformanceGate()
         {
             AudioClip clip = Track(AudioClip.Create("PerformanceClip", 44100, 1, 44100, false));
@@ -50,6 +51,7 @@ namespace Marble.AssetBundleRuntime.PerformanceTests.Fireworks
             }
 
             yield return null;
+            AssertLiveParticleCount(components);
 
             const float simulatedDeltaTime = 1f / 60f;
             float simulatedTime = 10f;
@@ -59,6 +61,8 @@ namespace Marble.AssetBundleRuntime.PerformanceTests.Fireworks
                 simulatedTime += simulatedDeltaTime;
                 yield return null;
             }
+
+            AssertLiveParticleCount(components);
 
             GC.Collect();
             GC.WaitForPendingFinalizers();
@@ -79,6 +83,8 @@ namespace Marble.AssetBundleRuntime.PerformanceTests.Fireworks
                 yield return null;
             }
 
+            int liveParticleCount = AssertLiveParticleCount(components);
+
             Array.Sort(elapsedTicks);
             int p95Index = (int)Math.Ceiling(MeasuredFrames * 0.95d) - 1;
             double p95Milliseconds =
@@ -94,7 +100,7 @@ namespace Marble.AssetBundleRuntime.PerformanceTests.Fireworks
 
             TestContext.WriteLine(
                 $"Unity {Application.unityVersion}; " +
-                $"instances={InstanceCount}; particles={InstanceCount * ParticlesPerInstance}; " +
+                $"instances={InstanceCount}; particles={liveParticleCount}; " +
                 $"frames={MeasuredFrames}; managedGC={allocatedBytes} B; " +
                 $"CPU p95={p95Milliseconds:F4} ms; AudioSources={actualAudioSourceCount}");
             Assert.That(allocatedBytes, Is.EqualTo(0), "Steady-state ProcessFrame must not allocate managed memory.");
@@ -142,6 +148,7 @@ namespace Marble.AssetBundleRuntime.PerformanceTests.Fireworks
                     startLifetime = 10f,
                     remainingLifetime = 5f,
                     startSize = 1f,
+                    randomSeed = (uint)(instanceIndex * ParticlesPerInstance + index + 1),
                 };
             }
 
@@ -158,6 +165,20 @@ namespace Marble.AssetBundleRuntime.PerformanceTests.Fireworks
             {
                 components[index].ProcessFrame(simulatedTime, simulatedDeltaTime);
             }
+        }
+
+        private static int AssertLiveParticleCount(FireworkParticleAudio[] components)
+        {
+            int totalParticleCount = 0;
+            for (int index = 0; index < components.Length; index++)
+            {
+                int particleCount = components[index].GetComponent<ParticleSystem>().particleCount;
+                Assert.That(particleCount, Is.EqualTo(ParticlesPerInstance));
+                totalParticleCount += particleCount;
+            }
+
+            Assert.That(totalParticleCount, Is.EqualTo(InstanceCount * ParticlesPerInstance));
+            return totalParticleCount;
         }
 
         private static GameObject CreateAudioPrefab(string name)

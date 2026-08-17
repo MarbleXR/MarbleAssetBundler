@@ -8,10 +8,13 @@ namespace Marble.AssetBundleRuntime.Fireworks
     [RequireComponent(typeof(ParticleSystem))]
     public sealed class FireworkParticleAudio : MonoBehaviour
     {
+        private const byte ShotPlayedFlag = 1;
+        private const byte ExplosionPlayedFlag = 2;
+
         internal const string LateUpdateProfilerMarkerName =
             "Marble.AssetBundleRuntime.Fireworks.FireworkParticleAudio.LateUpdate";
 
-        private static readonly ProfilerMarker LateUpdateProfilerMarker =
+        private readonly ProfilerMarker lateUpdateProfilerMarker =
             new ProfilerMarker(LateUpdateProfilerMarkerName);
 
         [Header("Lifetime")]
@@ -64,10 +67,16 @@ namespace Marble.AssetBundleRuntime.Fireworks
 
         private ParticleSystem cachedParticleSystem;
         private ParticleSystem.Particle[] particleBuffer = Array.Empty<ParticleSystem.Particle>();
+        private uint[] particleStateSeeds = Array.Empty<uint>();
+        private byte[] particleStateFlags = Array.Empty<byte>();
+        private bool[] particleStatesSeen = Array.Empty<bool>();
         private AudioSource[] explosionSources = Array.Empty<AudioSource>();
         private float[] explosionReleaseTimes = Array.Empty<float>();
         private AudioSource[] shotSources = Array.Empty<AudioSource>();
         private float[] shotReleaseTimes = Array.Empty<float>();
+        private GameObject explosionPoolRoot;
+        private GameObject shotPoolRoot;
+        private int particleStateCount;
         private int explosionCursor;
         private int shotCursor;
         private bool initialized;
@@ -87,12 +96,31 @@ namespace Marble.AssetBundleRuntime.Fireworks
 
         private void LateUpdate()
         {
-            ProcessFrame(Time.time, Time.deltaTime);
+            if (!initialized)
+            {
+                Initialize();
+            }
+
+            ProcessFrame(Time.unscaledTime, GetParticleDeltaTime());
+        }
+
+        internal float GetParticleDeltaTime()
+        {
+            if (cachedParticleSystem == null || cachedParticleSystem.isPaused)
+            {
+                return 0f;
+            }
+
+            ParticleSystem.MainModule main = cachedParticleSystem.main;
+            float frameDeltaTime = main.useUnscaledTime
+                ? Time.unscaledDeltaTime
+                : Time.deltaTime;
+            return Mathf.Max(0f, frameDeltaTime * main.simulationSpeed);
         }
 
         internal void ProcessFrame(float now, float deltaTime)
         {
-            using (LateUpdateProfilerMarker.Auto())
+            using (lateUpdateProfilerMarker.Auto())
             {
                 if (!initialized)
                 {
@@ -106,25 +134,50 @@ namespace Marble.AssetBundleRuntime.Fireworks
 
                 ReleaseExpired(explosionSources, explosionReleaseTimes, now);
                 ReleaseExpired(shotSources, shotReleaseTimes, now);
+                if (deltaTime <= 0f)
+                {
+                    return;
+                }
+
                 EnsureParticleCapacity();
 
                 int particleCount = cachedParticleSystem.GetParticles(particleBuffer);
+                ClearParticleStateSeenFlags();
                 for (int index = 0; index < particleCount; index++)
                 {
                     ParticleSystem.Particle particle = particleBuffer[index];
-                    Vector3 worldPosition = GetWorldPosition(particle.position);
+                    int stateIndex = GetOrAddParticleState(particle.randomSeed);
+                    particleStatesSeen[stateIndex] = true;
+                    byte stateFlags = particleStateFlags[stateIndex];
+                    bool playExplosion =
+                        (stateFlags & ExplosionPlayedFlag) == 0 &&
+                        particle.remainingLifetime > 0f &&
+                        particle.remainingLifetime <= deltaTime;
+                    bool playShot =
+                        (stateFlags & ShotPlayedFlag) == 0 &&
+                        particle.startLifetime > 0f &&
+                        particle.remainingLifetime >= particle.startLifetime - deltaTime;
 
-                    if (particle.remainingLifetime > 0f && particle.remainingLifetime <= deltaTime)
+                    if (playExplosion || playShot)
                     {
-                        SpawnExplosion(worldPosition, now);
+                        Vector3 worldPosition = GetWorldPosition(particle.position);
+                        if (playExplosion)
+                        {
+                            SpawnExplosion(worldPosition, now);
+                            stateFlags |= ExplosionPlayedFlag;
+                        }
+
+                        if (playShot)
+                        {
+                            SpawnShot(worldPosition, now);
+                            stateFlags |= ShotPlayedFlag;
+                        }
                     }
 
-                    if (particle.startLifetime > 0f &&
-                        particle.remainingLifetime >= particle.startLifetime - deltaTime)
-                    {
-                        SpawnShot(worldPosition, now);
-                    }
+                    particleStateFlags[stateIndex] = stateFlags;
                 }
+
+                RemoveMissingParticleStates();
             }
         }
 
@@ -132,18 +185,25 @@ namespace Marble.AssetBundleRuntime.Fireworks
         {
             StopAllSources(explosionSources, explosionReleaseTimes);
             StopAllSources(shotSources, shotReleaseTimes);
+            particleStateCount = 0;
         }
 
         private void OnDestroy()
         {
             StopAllSources(explosionSources, explosionReleaseTimes);
             StopAllSources(shotSources, shotReleaseTimes);
+            DestroyPoolRoot(ref explosionPoolRoot);
+            DestroyPoolRoot(ref shotPoolRoot);
             cachedParticleSystem = null;
             particleBuffer = Array.Empty<ParticleSystem.Particle>();
+            particleStateSeeds = Array.Empty<uint>();
+            particleStateFlags = Array.Empty<byte>();
+            particleStatesSeen = Array.Empty<bool>();
             explosionSources = Array.Empty<AudioSource>();
             explosionReleaseTimes = Array.Empty<float>();
             shotSources = Array.Empty<AudioSource>();
             shotReleaseTimes = Array.Empty<float>();
+            particleStateCount = 0;
             initialized = false;
         }
 
@@ -161,13 +221,16 @@ namespace Marble.AssetBundleRuntime.Fireworks
                 explosionPoolSize,
                 "Explosion Audio",
                 out explosionSources,
-                out explosionReleaseTimes);
+                out explosionReleaseTimes,
+                out explosionPoolRoot);
             CreatePool(
                 shotAudioPrefab,
                 shotPoolSize,
                 "Shot Audio",
                 out shotSources,
-                out shotReleaseTimes);
+                out shotReleaseTimes,
+                out shotPoolRoot);
+            particleStateCount = 0;
             explosionCursor = 0;
             shotCursor = 0;
             initialized = true;
@@ -185,6 +248,20 @@ namespace Marble.AssetBundleRuntime.Fireworks
             {
                 particleBuffer = new ParticleSystem.Particle[requiredCapacity];
             }
+
+            int requiredStateCapacity = requiredCapacity * 2;
+            if (particleStateSeeds.Length < requiredStateCapacity)
+            {
+                uint[] expandedSeeds = new uint[requiredStateCapacity];
+                byte[] expandedFlags = new byte[requiredStateCapacity];
+                bool[] expandedSeen = new bool[requiredStateCapacity];
+                Array.Copy(particleStateSeeds, expandedSeeds, particleStateCount);
+                Array.Copy(particleStateFlags, expandedFlags, particleStateCount);
+                Array.Copy(particleStatesSeen, expandedSeen, particleStateCount);
+                particleStateSeeds = expandedSeeds;
+                particleStateFlags = expandedFlags;
+                particleStatesSeen = expandedSeen;
+            }
         }
 
         private void CreatePool(
@@ -192,27 +269,94 @@ namespace Marble.AssetBundleRuntime.Fireworks
             int requestedSize,
             string itemLabel,
             out AudioSource[] sources,
-            out float[] releaseTimes)
+            out float[] releaseTimes,
+            out GameObject poolRoot)
         {
-            int size = prefab == null ? 0 : Mathf.Max(0, requestedSize);
+            int size = prefab == null || prefab.GetComponent<AudioSource>() == null
+                ? 0
+                : Mathf.Max(0, requestedSize);
             sources = size == 0 ? Array.Empty<AudioSource>() : new AudioSource[size];
             releaseTimes = size == 0 ? Array.Empty<float>() : new float[size];
+            poolRoot = null;
+            if (size == 0)
+            {
+                return;
+            }
+
+            poolRoot = new GameObject($"{itemLabel} Pool");
+            poolRoot.SetActive(false);
+            poolRoot.transform.SetParent(transform, false);
 
             for (int index = 0; index < size; index++)
             {
-                GameObject instance = Instantiate(prefab, transform, false);
+                GameObject instance = Instantiate(prefab, poolRoot.transform, false);
                 instance.name = $"{prefab.name} ({itemLabel} {index + 1})";
                 instance.SetActive(false);
                 AudioSource source = instance.GetComponent<AudioSource>();
-                if (source == null)
-                {
-                    Destroy(instance);
-                    continue;
-                }
-
                 source.playOnAwake = false;
                 sources[index] = source;
             }
+
+            poolRoot.SetActive(true);
+        }
+
+        private void DestroyPoolRoot(ref GameObject poolRoot)
+        {
+            if (poolRoot != null)
+            {
+                Destroy(poolRoot);
+                poolRoot = null;
+            }
+        }
+
+        private void ClearParticleStateSeenFlags()
+        {
+            for (int index = 0; index < particleStateCount; index++)
+            {
+                particleStatesSeen[index] = false;
+            }
+        }
+
+        private int GetOrAddParticleState(uint randomSeed)
+        {
+            for (int index = 0; index < particleStateCount; index++)
+            {
+                if (particleStateSeeds[index] == randomSeed)
+                {
+                    return index;
+                }
+            }
+
+            int newStateIndex = particleStateCount;
+            particleStateCount++;
+            particleStateSeeds[newStateIndex] = randomSeed;
+            particleStateFlags[newStateIndex] = 0;
+            return newStateIndex;
+        }
+
+        private void RemoveMissingParticleStates()
+        {
+            int nextStateIndex = 0;
+            for (int currentStateIndex = 0;
+                 currentStateIndex < particleStateCount;
+                 currentStateIndex++)
+            {
+                if (!particleStatesSeen[currentStateIndex])
+                {
+                    continue;
+                }
+
+                if (nextStateIndex != currentStateIndex)
+                {
+                    particleStateSeeds[nextStateIndex] = particleStateSeeds[currentStateIndex];
+                    particleStateFlags[nextStateIndex] = particleStateFlags[currentStateIndex];
+                    particleStatesSeen[nextStateIndex] = true;
+                }
+
+                nextStateIndex++;
+            }
+
+            particleStateCount = nextStateIndex;
         }
 
         private static void ReleaseExpired(AudioSource[] sources, float[] releaseTimes, float now)

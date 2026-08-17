@@ -24,7 +24,7 @@ In the Marble application, add the repository URL and an immutable revision to `
 ```json
 {
   "dependencies": {
-    "com.marblexr.asset-bundle-runtime": "https://github.com/MarbleXR/MarbleAssetBundle.git?path=/Packages/com.marblexr.asset-bundle-runtime#v0.1.0"
+    "com.marblexr.asset-bundle-runtime": "https://github.com/MarbleXR/MarbleAssetBundler.git?path=/Packages/com.marblexr.asset-bundle-runtime#<immutable-commit-sha-or-release-tag>"
   }
 }
 ```
