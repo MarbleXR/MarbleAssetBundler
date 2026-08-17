@@ -198,6 +198,53 @@ namespace Marble.AssetBundleRuntime.Tests.Fireworks
         }
 
         [UnityTest]
+        public IEnumerator ParticleMissingOnNextFrameStillTriggersOneExplosion()
+        {
+            TestRig rig = CreateRig(
+                audioExplosion: new[] { CreateClip("Explosion") },
+                explosionPoolSize: 2);
+            Activate(rig);
+            Vector3 lastPosition = new Vector3(2f, 3f, 4f);
+            SetParticle(rig, lastPosition, 10f, 5f);
+            rig.Component.ProcessFrame(Time.unscaledTime, SimulatedDeltaTime);
+            rig.ParticleSystem.Clear(true);
+
+            rig.Component.ProcessFrame(Time.unscaledTime, 0.5f);
+            rig.Component.ProcessFrame(Time.unscaledTime, 0.5f);
+
+            AudioSource[] activeSources = rig.Component
+                .GetComponentsInChildren<AudioSource>(true)
+                .Where(source => source.gameObject.activeSelf)
+                .ToArray();
+            Assert.That(activeSources, Has.Length.EqualTo(1));
+            AssertVector(activeSources[0].transform.position, lastPosition);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator ParticlesWithSameRandomSeedKeepIndependentEventState()
+        {
+            TestRig rig = CreateRig(
+                audioShot: new[] { CreateClip("Shot") },
+                shotPoolSize: 3);
+            Activate(rig);
+            const uint sharedSeed = 12345;
+            ParticleSystem.Particle[] particles =
+            {
+                CreateParticle(Vector3.zero, 10f, 10f, sharedSeed),
+                CreateParticle(Vector3.one, 10f, 10f, sharedSeed),
+            };
+            rig.ParticleSystem.SetParticles(particles, particles.Length);
+
+            rig.Component.ProcessFrame(Time.unscaledTime, SimulatedDeltaTime);
+            rig.Component.ProcessFrame(Time.unscaledTime, SimulatedDeltaTime);
+
+            AudioSource[] sources = rig.Component.GetComponentsInChildren<AudioSource>(true);
+            Assert.That(sources.Count(source => source.gameObject.activeSelf), Is.EqualTo(2));
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator SimulationSpeedZeroDefersBirthUntilSimulationResumes()
         {
             TestRig rig = CreateRig(
@@ -216,7 +263,9 @@ namespace Marble.AssetBundleRuntime.Tests.Fireworks
             Assert.That(source.gameObject.activeSelf, Is.False);
 
             main.simulationSpeed = 0.5f;
-            yield return null;
+            float particleDeltaTime = rig.Component.GetParticleDeltaTime();
+            Assert.That(particleDeltaTime, Is.GreaterThan(0f));
+            rig.Component.ProcessFrame(Time.unscaledTime, particleDeltaTime);
 
             Assert.That(source.gameObject.activeSelf, Is.True);
         }
@@ -395,15 +444,28 @@ namespace Marble.AssetBundleRuntime.Tests.Fireworks
             float startLifetime,
             float remainingLifetime)
         {
-            ParticleSystem.Particle particle = new ParticleSystem.Particle
+            ParticleSystem.Particle particle = CreateParticle(
+                position,
+                startLifetime,
+                remainingLifetime,
+                nextParticleSeed++);
+            rig.ParticleSystem.SetParticles(new[] { particle }, 1);
+        }
+
+        private static ParticleSystem.Particle CreateParticle(
+            Vector3 position,
+            float startLifetime,
+            float remainingLifetime,
+            uint randomSeed)
+        {
+            return new ParticleSystem.Particle
             {
                 position = position,
                 startLifetime = startLifetime,
                 remainingLifetime = remainingLifetime,
                 startSize = 1f,
-                randomSeed = nextParticleSeed++,
+                randomSeed = randomSeed,
             };
-            rig.ParticleSystem.SetParticles(new[] { particle }, 1);
         }
 
         private static void SetSimulationSpace(

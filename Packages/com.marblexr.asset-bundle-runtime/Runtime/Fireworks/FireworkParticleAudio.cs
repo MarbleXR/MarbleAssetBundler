@@ -70,6 +70,8 @@ namespace Marble.AssetBundleRuntime.Fireworks
         private uint[] particleStateSeeds = Array.Empty<uint>();
         private byte[] particleStateFlags = Array.Empty<byte>();
         private bool[] particleStatesSeen = Array.Empty<bool>();
+        private float[] particleStateRemainingLifetimes = Array.Empty<float>();
+        private Vector3[] particleStateWorldPositions = Array.Empty<Vector3>();
         private AudioSource[] explosionSources = Array.Empty<AudioSource>();
         private float[] explosionReleaseTimes = Array.Empty<float>();
         private AudioSource[] shotSources = Array.Empty<AudioSource>();
@@ -146,7 +148,7 @@ namespace Marble.AssetBundleRuntime.Fireworks
                 for (int index = 0; index < particleCount; index++)
                 {
                     ParticleSystem.Particle particle = particleBuffer[index];
-                    int stateIndex = GetOrAddParticleState(particle.randomSeed);
+                    int stateIndex = GetOrAddParticleState(particle);
                     particleStatesSeen[stateIndex] = true;
                     byte stateFlags = particleStateFlags[stateIndex];
                     bool playExplosion =
@@ -158,9 +160,11 @@ namespace Marble.AssetBundleRuntime.Fireworks
                         particle.startLifetime > 0f &&
                         particle.remainingLifetime >= particle.startLifetime - deltaTime;
 
+                    Vector3 worldPosition = GetWorldPosition(particle.position);
+                    particleStateWorldPositions[stateIndex] = worldPosition;
+                    particleStateRemainingLifetimes[stateIndex] = particle.remainingLifetime;
                     if (playExplosion || playShot)
                     {
-                        Vector3 worldPosition = GetWorldPosition(particle.position);
                         if (playExplosion)
                         {
                             SpawnExplosion(worldPosition, now);
@@ -177,7 +181,7 @@ namespace Marble.AssetBundleRuntime.Fireworks
                     particleStateFlags[stateIndex] = stateFlags;
                 }
 
-                RemoveMissingParticleStates();
+                RemoveMissingParticleStates(now);
             }
         }
 
@@ -199,6 +203,8 @@ namespace Marble.AssetBundleRuntime.Fireworks
             particleStateSeeds = Array.Empty<uint>();
             particleStateFlags = Array.Empty<byte>();
             particleStatesSeen = Array.Empty<bool>();
+            particleStateRemainingLifetimes = Array.Empty<float>();
+            particleStateWorldPositions = Array.Empty<Vector3>();
             explosionSources = Array.Empty<AudioSource>();
             explosionReleaseTimes = Array.Empty<float>();
             shotSources = Array.Empty<AudioSource>();
@@ -255,12 +261,24 @@ namespace Marble.AssetBundleRuntime.Fireworks
                 uint[] expandedSeeds = new uint[requiredStateCapacity];
                 byte[] expandedFlags = new byte[requiredStateCapacity];
                 bool[] expandedSeen = new bool[requiredStateCapacity];
+                float[] expandedRemainingLifetimes = new float[requiredStateCapacity];
+                Vector3[] expandedWorldPositions = new Vector3[requiredStateCapacity];
                 Array.Copy(particleStateSeeds, expandedSeeds, particleStateCount);
                 Array.Copy(particleStateFlags, expandedFlags, particleStateCount);
                 Array.Copy(particleStatesSeen, expandedSeen, particleStateCount);
+                Array.Copy(
+                    particleStateRemainingLifetimes,
+                    expandedRemainingLifetimes,
+                    particleStateCount);
+                Array.Copy(
+                    particleStateWorldPositions,
+                    expandedWorldPositions,
+                    particleStateCount);
                 particleStateSeeds = expandedSeeds;
                 particleStateFlags = expandedFlags;
                 particleStatesSeen = expandedSeen;
+                particleStateRemainingLifetimes = expandedRemainingLifetimes;
+                particleStateWorldPositions = expandedWorldPositions;
             }
         }
 
@@ -317,11 +335,13 @@ namespace Marble.AssetBundleRuntime.Fireworks
             }
         }
 
-        private int GetOrAddParticleState(uint randomSeed)
+        private int GetOrAddParticleState(ParticleSystem.Particle particle)
         {
             for (int index = 0; index < particleStateCount; index++)
             {
-                if (particleStateSeeds[index] == randomSeed)
+                if (particleStateSeeds[index] == particle.randomSeed &&
+                    !particleStatesSeen[index] &&
+                    particle.remainingLifetime <= particleStateRemainingLifetimes[index])
                 {
                     return index;
                 }
@@ -329,12 +349,12 @@ namespace Marble.AssetBundleRuntime.Fireworks
 
             int newStateIndex = particleStateCount;
             particleStateCount++;
-            particleStateSeeds[newStateIndex] = randomSeed;
+            particleStateSeeds[newStateIndex] = particle.randomSeed;
             particleStateFlags[newStateIndex] = 0;
             return newStateIndex;
         }
 
-        private void RemoveMissingParticleStates()
+        private void RemoveMissingParticleStates(float now)
         {
             int nextStateIndex = 0;
             for (int currentStateIndex = 0;
@@ -343,6 +363,11 @@ namespace Marble.AssetBundleRuntime.Fireworks
             {
                 if (!particleStatesSeen[currentStateIndex])
                 {
+                    if ((particleStateFlags[currentStateIndex] & ExplosionPlayedFlag) == 0)
+                    {
+                        SpawnExplosion(particleStateWorldPositions[currentStateIndex], now);
+                    }
+
                     continue;
                 }
 
@@ -351,6 +376,10 @@ namespace Marble.AssetBundleRuntime.Fireworks
                     particleStateSeeds[nextStateIndex] = particleStateSeeds[currentStateIndex];
                     particleStateFlags[nextStateIndex] = particleStateFlags[currentStateIndex];
                     particleStatesSeen[nextStateIndex] = true;
+                    particleStateRemainingLifetimes[nextStateIndex] =
+                        particleStateRemainingLifetimes[currentStateIndex];
+                    particleStateWorldPositions[nextStateIndex] =
+                        particleStateWorldPositions[currentStateIndex];
                 }
 
                 nextStateIndex++;
