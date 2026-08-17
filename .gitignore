@@ -39,3 +39,5 @@ AssetBundlePackages/
 # Repository-owned Unity scripts only.
 !/Assets/Scripts.meta
 !/Assets/Scripts/
+
+.docs/
