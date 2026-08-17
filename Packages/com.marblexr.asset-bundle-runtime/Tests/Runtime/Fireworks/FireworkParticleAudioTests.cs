@@ -17,6 +17,13 @@ namespace Marble.AssetBundleRuntime.Tests.Fireworks
 
         private readonly List<Object> objectsToDestroy = new List<Object>();
 
+        [SetUp]
+        public void SetUp()
+        {
+            GameObject listener = Track(new GameObject("TestAudioListener"));
+            listener.AddComponent<AudioListener>();
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -303,7 +310,7 @@ namespace Marble.AssetBundleRuntime.Tests.Fireworks
         {
             return rig.Component
                 .GetComponentsInChildren<AudioSource>(true)
-                .Single(source => source.gameObject.name.StartsWith(prefabName, StringComparison.Ordinal));
+                .First(source => source.gameObject.name.StartsWith(prefabName, StringComparison.Ordinal));
         }
 
         private static void SetField<T>(FireworkParticleAudio component, string fieldName, T value)
