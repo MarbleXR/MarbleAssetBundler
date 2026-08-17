@@ -1,0 +1,5 @@
+<linker>
+  <assembly fullname="Marble.AssetBundleRuntime">
+    <type fullname="Marble.AssetBundleRuntime.Fireworks.FireworkParticleAudio" preserve="all" />
+  </assembly>
+</linker>
