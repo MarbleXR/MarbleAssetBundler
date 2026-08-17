@@ -346,17 +346,30 @@ namespace Marble.AssetBundleRuntime.Fireworks
 
         private int GetOrAddParticleState(ParticleSystem.Particle particle)
         {
+            int closestStateIndex = -1;
+            float smallestLifetimeDecrease = float.MaxValue;
             for (int index = 0; index < particleStateCount; index++)
             {
                 if (particleStateSeeds[index] == particle.randomSeed &&
                     !particleStatesSeen[index] &&
                     Mathf.Approximately(
                         particle.startLifetime,
-                        particleStateStartLifetimes[index]) &&
-                    particle.remainingLifetime <= particleStateRemainingLifetimes[index])
+                        particleStateStartLifetimes[index]))
                 {
-                    return index;
+                    float lifetimeDecrease =
+                        particleStateRemainingLifetimes[index] - particle.remainingLifetime;
+                    if (lifetimeDecrease >= -0.0001f &&
+                        lifetimeDecrease < smallestLifetimeDecrease)
+                    {
+                        closestStateIndex = index;
+                        smallestLifetimeDecrease = lifetimeDecrease;
+                    }
                 }
+            }
+
+            if (closestStateIndex >= 0)
+            {
+                return closestStateIndex;
             }
 
             int newStateIndex = particleStateCount;

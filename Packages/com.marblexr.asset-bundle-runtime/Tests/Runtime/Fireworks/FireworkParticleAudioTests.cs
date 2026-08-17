@@ -286,6 +286,32 @@ namespace Marble.AssetBundleRuntime.Tests.Fireworks
         }
 
         [UnityTest]
+        public IEnumerator SameSeedAndLifetimeMatchesClosestLifecycleState()
+        {
+            TestRig rig = CreateRig(
+                audioExplosion: new[] { CreateClip("Explosion") },
+                explosionPoolSize: 3);
+            Activate(rig);
+            const uint sharedSeed = 24680;
+            ParticleSystem.Particle[] firstFrameParticles =
+            {
+                CreateParticle(Vector3.zero, 10f, 5f, sharedSeed),
+                CreateParticle(Vector3.one, 10f, 0.01f, sharedSeed),
+            };
+            rig.ParticleSystem.SetParticles(firstFrameParticles, firstFrameParticles.Length);
+            rig.Component.ProcessFrame(Time.unscaledTime, 0.02f);
+
+            ParticleSystem.Particle survivingParticle =
+                CreateParticle(Vector3.one, 10f, 0.005f, sharedSeed);
+            rig.ParticleSystem.SetParticles(new[] { survivingParticle }, 1);
+            rig.Component.ProcessFrame(Time.unscaledTime, 0.02f);
+
+            AudioSource[] sources = rig.Component.GetComponentsInChildren<AudioSource>(true);
+            Assert.That(sources.Count(source => source.gameObject.activeSelf), Is.EqualTo(1));
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator SimulationSpeedZeroDefersBirthUntilSimulationResumes()
         {
             TestRig rig = CreateRig(
