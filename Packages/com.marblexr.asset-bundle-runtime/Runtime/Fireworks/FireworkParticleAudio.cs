@@ -87,6 +87,11 @@ namespace Marble.AssetBundleRuntime.Fireworks
 
         private void LateUpdate()
         {
+            ProcessFrame(Time.time, Time.deltaTime);
+        }
+
+        internal void ProcessFrame(float now, float deltaTime)
+        {
             using (LateUpdateProfilerMarker.Auto())
             {
                 if (!initialized)
@@ -99,13 +104,11 @@ namespace Marble.AssetBundleRuntime.Fireworks
                     return;
                 }
 
-                float now = Time.time;
                 ReleaseExpired(explosionSources, explosionReleaseTimes, now);
                 ReleaseExpired(shotSources, shotReleaseTimes, now);
                 EnsureParticleCapacity();
 
                 int particleCount = cachedParticleSystem.GetParticles(particleBuffer);
-                float deltaTime = Time.deltaTime;
                 for (int index = 0; index < particleCount; index++)
                 {
                     ParticleSystem.Particle particle = particleBuffer[index];
