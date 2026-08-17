@@ -23,13 +23,14 @@ Marbleアプリで利用するPrefabを、iOS／Android向けのAssetBundleと�
 
 | パス | 内容 |
 | --- | --- |
-| `Assets/Prefabs/` | パッケージ化するPrefab |
-| `Assets/Scenes/AssetSampleScene.unity` | AssetBundle用のサンプルシーン |
+| `Assets/Scripts/` | Gitで共有するプロジェクト固有のC#スクリプト |
+| `Assets/Prefabs/` | ローカルでimportするパッケージ化対象Prefab（Git追跡対象外） |
 | `Packages/com.marblexr.asset-bundle-builder/` | AssetBundle ZIPを生成するUnity Editor Package |
 
 ## 注意事項
 
 - AssetBundleはMarbleアプリと同じUnityバージョンでビルドしてください。
+- `Assets/`配下は`Assets/Scripts/`だけをGitで共有します。Prefab、Scene、画像、音声などはローカルでimportし、Publicリポジトリへコミットしないでください。
 - Shader、Material、Unity PackageはMarbleアプリで利用可能なものに限定してください。
 - Custom MonoBehaviourのコードはAssetBundleには含まれません。使用する型はMarbleアプリ側にあらかじめ組み込み、IL2CPP strippingの対象外にしてください。
 - 実機のiOS／Android両方で動作を確認してください。
