@@ -205,12 +205,12 @@ namespace Marble.AssetBundleRuntime.Tests.Fireworks
                 explosionPoolSize: 2);
             Activate(rig);
             Vector3 lastPosition = new Vector3(2f, 3f, 4f);
-            SetParticle(rig, lastPosition, 10f, 5f);
+            SetParticle(rig, lastPosition, 10f, 0.05f);
             rig.Component.ProcessFrame(Time.unscaledTime, SimulatedDeltaTime);
             rig.ParticleSystem.Clear(true);
 
-            rig.Component.ProcessFrame(Time.unscaledTime, 0.5f);
-            rig.Component.ProcessFrame(Time.unscaledTime, 0.5f);
+            rig.Component.ProcessFrame(Time.unscaledTime, 0.1f);
+            rig.Component.ProcessFrame(Time.unscaledTime, 0.1f);
 
             AudioSource[] activeSources = rig.Component
                 .GetComponentsInChildren<AudioSource>(true)
@@ -218,6 +218,24 @@ namespace Marble.AssetBundleRuntime.Tests.Fireworks
                 .ToArray();
             Assert.That(activeSources, Has.Length.EqualTo(1));
             AssertVector(activeSources[0].transform.position, lastPosition);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator ClearingLiveParticleDoesNotTriggerExplosion()
+        {
+            TestRig rig = CreateRig(
+                audioExplosion: new[] { CreateClip("Explosion") },
+                explosionPoolSize: 1);
+            Activate(rig);
+            SetParticle(rig, Vector3.zero, 10f, 5f);
+            rig.Component.ProcessFrame(Time.unscaledTime, SimulatedDeltaTime);
+            rig.ParticleSystem.Clear(true);
+
+            rig.Component.ProcessFrame(Time.unscaledTime, 0.5f);
+
+            AudioSource source = FindPooledSource(rig, "ExplosionAudioPrefab");
+            Assert.That(source.gameObject.activeSelf, Is.False);
             yield return null;
         }
 
@@ -237,6 +255,29 @@ namespace Marble.AssetBundleRuntime.Tests.Fireworks
             rig.ParticleSystem.SetParticles(particles, particles.Length);
 
             rig.Component.ProcessFrame(Time.unscaledTime, SimulatedDeltaTime);
+            rig.Component.ProcessFrame(Time.unscaledTime, SimulatedDeltaTime);
+
+            AudioSource[] sources = rig.Component.GetComponentsInChildren<AudioSource>(true);
+            Assert.That(sources.Count(source => source.gameObject.activeSelf), Is.EqualTo(2));
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator ReusedRandomSeedWithNewLifetimeGetsNewEventState()
+        {
+            TestRig rig = CreateRig(
+                audioShot: new[] { CreateClip("Shot") },
+                shotPoolSize: 2);
+            Activate(rig);
+            const uint reusedSeed = 67890;
+            ParticleSystem.Particle firstParticle =
+                CreateParticle(Vector3.zero, 10f, 10f, reusedSeed);
+            rig.ParticleSystem.SetParticles(new[] { firstParticle }, 1);
+            rig.Component.ProcessFrame(Time.unscaledTime, SimulatedDeltaTime);
+
+            ParticleSystem.Particle replacementParticle =
+                CreateParticle(Vector3.one, 1f, 1f, reusedSeed);
+            rig.ParticleSystem.SetParticles(new[] { replacementParticle }, 1);
             rig.Component.ProcessFrame(Time.unscaledTime, SimulatedDeltaTime);
 
             AudioSource[] sources = rig.Component.GetComponentsInChildren<AudioSource>(true);

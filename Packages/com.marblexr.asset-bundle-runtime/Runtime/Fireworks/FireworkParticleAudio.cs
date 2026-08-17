@@ -70,6 +70,7 @@ namespace Marble.AssetBundleRuntime.Fireworks
         private uint[] particleStateSeeds = Array.Empty<uint>();
         private byte[] particleStateFlags = Array.Empty<byte>();
         private bool[] particleStatesSeen = Array.Empty<bool>();
+        private float[] particleStateStartLifetimes = Array.Empty<float>();
         private float[] particleStateRemainingLifetimes = Array.Empty<float>();
         private Vector3[] particleStateWorldPositions = Array.Empty<Vector3>();
         private AudioSource[] explosionSources = Array.Empty<AudioSource>();
@@ -162,6 +163,7 @@ namespace Marble.AssetBundleRuntime.Fireworks
 
                     Vector3 worldPosition = GetWorldPosition(particle.position);
                     particleStateWorldPositions[stateIndex] = worldPosition;
+                    particleStateStartLifetimes[stateIndex] = particle.startLifetime;
                     particleStateRemainingLifetimes[stateIndex] = particle.remainingLifetime;
                     if (playExplosion || playShot)
                     {
@@ -181,7 +183,7 @@ namespace Marble.AssetBundleRuntime.Fireworks
                     particleStateFlags[stateIndex] = stateFlags;
                 }
 
-                RemoveMissingParticleStates(now);
+                RemoveMissingParticleStates(now, deltaTime);
             }
         }
 
@@ -203,6 +205,7 @@ namespace Marble.AssetBundleRuntime.Fireworks
             particleStateSeeds = Array.Empty<uint>();
             particleStateFlags = Array.Empty<byte>();
             particleStatesSeen = Array.Empty<bool>();
+            particleStateStartLifetimes = Array.Empty<float>();
             particleStateRemainingLifetimes = Array.Empty<float>();
             particleStateWorldPositions = Array.Empty<Vector3>();
             explosionSources = Array.Empty<AudioSource>();
@@ -261,11 +264,16 @@ namespace Marble.AssetBundleRuntime.Fireworks
                 uint[] expandedSeeds = new uint[requiredStateCapacity];
                 byte[] expandedFlags = new byte[requiredStateCapacity];
                 bool[] expandedSeen = new bool[requiredStateCapacity];
+                float[] expandedStartLifetimes = new float[requiredStateCapacity];
                 float[] expandedRemainingLifetimes = new float[requiredStateCapacity];
                 Vector3[] expandedWorldPositions = new Vector3[requiredStateCapacity];
                 Array.Copy(particleStateSeeds, expandedSeeds, particleStateCount);
                 Array.Copy(particleStateFlags, expandedFlags, particleStateCount);
                 Array.Copy(particleStatesSeen, expandedSeen, particleStateCount);
+                Array.Copy(
+                    particleStateStartLifetimes,
+                    expandedStartLifetimes,
+                    particleStateCount);
                 Array.Copy(
                     particleStateRemainingLifetimes,
                     expandedRemainingLifetimes,
@@ -277,6 +285,7 @@ namespace Marble.AssetBundleRuntime.Fireworks
                 particleStateSeeds = expandedSeeds;
                 particleStateFlags = expandedFlags;
                 particleStatesSeen = expandedSeen;
+                particleStateStartLifetimes = expandedStartLifetimes;
                 particleStateRemainingLifetimes = expandedRemainingLifetimes;
                 particleStateWorldPositions = expandedWorldPositions;
             }
@@ -341,6 +350,9 @@ namespace Marble.AssetBundleRuntime.Fireworks
             {
                 if (particleStateSeeds[index] == particle.randomSeed &&
                     !particleStatesSeen[index] &&
+                    Mathf.Approximately(
+                        particle.startLifetime,
+                        particleStateStartLifetimes[index]) &&
                     particle.remainingLifetime <= particleStateRemainingLifetimes[index])
                 {
                     return index;
@@ -354,7 +366,7 @@ namespace Marble.AssetBundleRuntime.Fireworks
             return newStateIndex;
         }
 
-        private void RemoveMissingParticleStates(float now)
+        private void RemoveMissingParticleStates(float now, float deltaTime)
         {
             int nextStateIndex = 0;
             for (int currentStateIndex = 0;
@@ -363,7 +375,10 @@ namespace Marble.AssetBundleRuntime.Fireworks
             {
                 if (!particleStatesSeen[currentStateIndex])
                 {
-                    if ((particleStateFlags[currentStateIndex] & ExplosionPlayedFlag) == 0)
+                    if ((particleStateFlags[currentStateIndex] & ExplosionPlayedFlag) == 0 &&
+                        particleStateRemainingLifetimes[currentStateIndex] > 0f &&
+                        particleStateRemainingLifetimes[currentStateIndex] <=
+                        deltaTime + 0.0001f)
                     {
                         SpawnExplosion(particleStateWorldPositions[currentStateIndex], now);
                     }
@@ -376,6 +391,8 @@ namespace Marble.AssetBundleRuntime.Fireworks
                     particleStateSeeds[nextStateIndex] = particleStateSeeds[currentStateIndex];
                     particleStateFlags[nextStateIndex] = particleStateFlags[currentStateIndex];
                     particleStatesSeen[nextStateIndex] = true;
+                    particleStateStartLifetimes[nextStateIndex] =
+                        particleStateStartLifetimes[currentStateIndex];
                     particleStateRemainingLifetimes[nextStateIndex] =
                         particleStateRemainingLifetimes[currentStateIndex];
                     particleStateWorldPositions[nextStateIndex] =
