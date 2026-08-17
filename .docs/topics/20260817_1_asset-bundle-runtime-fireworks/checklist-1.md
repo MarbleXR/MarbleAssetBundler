@@ -14,8 +14,8 @@
 | baseブランチ | `main` | `main` |
 | 直下の依存Plan | なし | なし |
 | stack位置 | bottom | bottom |
-| PR | 未作成 |  |
-| マージ順 | 1番目 |  |
+| PR | 1つ | [#1](https://github.com/MarbleXR/MarbleAssetBundler/pull/1) |
+| マージ順 | 1番目 | 1番目 |
 
 ## ステータス定義
 
@@ -82,11 +82,11 @@
 
 ## 最終確認
 
-- [ ] 全Taskの状態を更新した。
-- [ ] `changed / skipped` の理由を記載した。
-- [ ] 変更を伴うサブタスクの実績コミットを記録した。
-- [ ] EditMode／PlayMode／Performanceテストを完了した。
-- [ ] Plan内の全Taskが同じheadブランチに含まれている。
-- [ ] head/baseブランチが計画どおりである。
-- [ ] このPlanに対応するPRが1つだけ作成または更新されている。
-- [ ] 実施内容、テスト、性能結果、stack依存をPR要約に反映した。
+- [x] 全Taskの状態を更新した。
+- [x] `changed / skipped` の理由を記載した。
+- [x] 変更を伴うサブタスクの実績コミットを記録した。
+- [x] EditMode／PlayMode／Performanceテストを完了した。
+- [x] Plan内の全Taskが同じheadブランチに含まれている。
+- [x] head/baseブランチが計画どおりである。
+- [x] このPlanに対応するPRが1つだけ作成または更新されている。
+- [x] 実施内容、テスト、性能結果、stack依存をPR要約に反映した。
